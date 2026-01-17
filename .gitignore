@@ -1,0 +1,40 @@
+# --- Build Artifacts ---
+build/
+bin/
+lib/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+
+# --- CMake Generation Files ---
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+
+# --- IDE & Editor Settings ---
+.vscode/
+.idea/
+.vs/
+*.swp
+*.swo
+.DS_Store
+
+# --- Python (For your scripts/ folder) ---
+__pycache__/
+*.pyc
+venv/
+.venv/
+.env
+
+# --- Data & Logs ---
+*.log
+*.csv
+*.dat
+test_output.txt
