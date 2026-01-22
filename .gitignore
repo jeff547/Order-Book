@@ -25,6 +25,7 @@ Makefile
 *.swp
 *.swo
 .DS_Store
+.clang-format
 
 # --- Python (For your scripts/ folder) ---
 __pycache__/
