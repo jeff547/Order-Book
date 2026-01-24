@@ -8,20 +8,20 @@ private:
     Order* head = nullptr;
     Order* tail = nullptr;
     // 4 Bytes
-    Price price_;
+    const Price limitPrice_;
     Quantity size_;
-    Quantity volume_;
+    Quantity totalVolume_;
 
     friend class Order;
 
 public:
-    Limit(Price limitPrice, Quantity _size = 0, Quantity volume_ = 0)
-        : price_(limitPrice) {}
+    Limit(Price limitPrice, Quantity size_ = 0, Quantity totalVolume_ = 0)
+        : limitPrice_(limitPrice) {}
 
     Order* getHead() const { return head; }
-    Price getPrice() const { return price_; }
-    Quantity getSize() const { return size_; }
-    Quantity getVolume() const { return volume_; }
+    const Price getLimitPrice() const { return limitPrice_; }
+    const Quantity getSize() const { return size_; }
+    const Quantity getTotalVolume() const { return totalVolume_; }
 
-    void enqueue(Order* order);
+    void addOrder(Order* order);
 };

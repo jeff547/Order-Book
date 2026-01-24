@@ -9,7 +9,7 @@ using OrderId = std::uint64_t;
 
 enum class Side : std::uint8_t {
     BUY,
-    SELl,
+    SELL,
 };
 
 enum class OrderType : std::uint8_t {

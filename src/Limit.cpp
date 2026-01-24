@@ -1,7 +1,7 @@
 #include "Limit.h"
 #include "Order.h"
 
-void Limit::enqueue(Order* order) {
+void Limit::addOrder(Order* order) {
     if (head == nullptr) {
         head = tail = order;
     } else {
@@ -12,6 +12,6 @@ void Limit::enqueue(Order* order) {
     }
 
     size_++;
-    volume_ += order->getQuantity();
+    totalVolume_ += order->getQuantity();
     order->parentLimit = this;
 }
