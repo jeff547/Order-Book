@@ -19,25 +19,33 @@ Book::~Book() {
 }
 
 template <typename BookMap>
-void Book::matchOrder(BookMap& opposingBook, Price orderLimitPrice, Quantity& fillQty, Side side) {
+void Book::matchOrder(OrderId incomingOrderId, BookMap& opposingBook, Price orderLimitPrice, Quantity& fillQty,
+                      Side side) {
     while (fillQty > 0 && !opposingBook.empty()) {
         // Highest Bid or Lowest Ask
         auto bestLimitIt = opposingBook.begin();
         Limit* bestPriceLimit = bestLimitIt->second;
 
         // Check if Profitable
-        if (side == Side::BUY) {
-            if (bestPriceLimit->getLimitPrice() > orderLimitPrice)
-                break;
-
-        } else if (side == Side::SELL) {
-            if (bestPriceLimit->getLimitPrice() < orderLimitPrice)
-                break;
-        }
+        if (side == Side::BUY && bestPriceLimit->getLimitPrice() > orderLimitPrice)
+            break;
+        if (side == Side::SELL && bestPriceLimit->getLimitPrice() < orderLimitPrice)
+            break;
 
         // Iterate through Limit Queue
         while (fillQty > 0 && bestPriceLimit->getSize() > 0) {
             Order* headOrder = bestPriceLimit->getHead();
+
+            Quantity tradeQty = std::min(fillQty, headOrder->getQuantity());
+
+            if (tradeListener) {
+                tradeListener({
+                    incomingOrderId,
+                    headOrder->getOrderId(),
+                    bestPriceLimit->getLimitPrice(),
+                    tradeQty,
+                });
+            }
 
             if (headOrder->getQuantity() > fillQty) {
                 // Case A: (Full Fill of Incoming Order)
@@ -68,10 +76,10 @@ void Book::matchOrder(BookMap& opposingBook, Price orderLimitPrice, Quantity& fi
 void Book::addLimitOrder(OrderId orderId, Price orderLimitPrice, Quantity fillQty, Side side) {
     switch (side) {
     case Side::BUY:
-        matchOrder(asksMap, orderLimitPrice, fillQty, side);
+        matchOrder(orderId, asksMap, orderLimitPrice, fillQty, side);
         break;
     case Side::SELL:
-        matchOrder(bidsMap, orderLimitPrice, fillQty, side);
+        matchOrder(orderId, bidsMap, orderLimitPrice, fillQty, side);
         break;
     default:
         __builtin_unreachable();
@@ -113,10 +121,10 @@ void Book::addLimitOrder(OrderId orderId, Price orderLimitPrice, Quantity fillQt
 void Book::addMarketOrder(OrderId orderId, Quantity quantity, Side side) {
     switch (side) {
     case Side::BUY:
-        matchOrder(asksMap, std::numeric_limits<Price>::max(), quantity, side);
+        matchOrder(orderId, asksMap, std::numeric_limits<Price>::max(), quantity, side);
         break;
     case Side::SELL:
-        matchOrder(bidsMap, std::numeric_limits<Price>::min(), quantity, side);
+        matchOrder(orderId, bidsMap, std::numeric_limits<Price>::min(), quantity, side);
         break;
     default:
         __builtin_unreachable();

@@ -1,4 +1,4 @@
-#include "constants.h"
+#include "Types.h"
 
 class Order;
 
@@ -15,13 +15,15 @@ private:
     friend class Order;
 
 public:
-    Limit(Price limitPrice, Quantity size_ = 0, Quantity totalVolume_ = 0)
-        : limitPrice_(limitPrice) {}
+    Limit(Price limitPrice, Quantity size = 0, Quantity totalVolume = 0)
+        : limitPrice_(limitPrice)
+        , size_(size)
+        , totalVolume_(totalVolume) {}
 
     Order* getHead() const { return head; }
-    const Price getLimitPrice() const { return limitPrice_; }
-    const Quantity getSize() const { return size_; }
-    const Quantity getTotalVolume() const { return totalVolume_; }
+    Price getLimitPrice() const { return limitPrice_; }
+    Quantity getSize() const { return size_; }
+    Quantity getTotalVolume() const { return totalVolume_; }
 
     void addOrder(Order* order);
 };

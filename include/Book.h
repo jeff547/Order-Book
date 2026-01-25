@@ -4,8 +4,11 @@
 #include "Limit.h"
 #include "Order.h"
 
+#include <functional>
 #include <map>
 #include <unordered_map>
+
+using TradeCallback = std::function<void(const Trade&)>;
 
 class Book {
 private:
@@ -16,7 +19,11 @@ private:
     // Fast Lookup: Hash Map OrderID -> Order Object
     std::unordered_map<OrderId, Order*> orderMap;
 
-    template <typename BookMap> void matchOrder(BookMap& opposingBook, Price price, Quantity& quantity, Side side);
+    // For Benchmarking (Observer)
+    TradeCallback tradeListener = nullptr;
+
+    template <typename BookMap>
+    void matchOrder(OrderId incomingOrderId, BookMap& opposingBook, Price price, Quantity& quantity, Side side);
 
     friend class OrderBookTest;
 
@@ -26,6 +33,9 @@ public:
     void addLimitOrder(OrderId orderId, Price price, Quantity quantity, Side side);
     void addMarketOrder(OrderId orderId, Quantity quantity, Side side);
     void cancelOrder(OrderId orderId);
+
+    // For Benchmarking
+    void setTradeCallback(const TradeCallback& cb) { tradeListener = cb; }
 };
 
 #endif

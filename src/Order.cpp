@@ -9,6 +9,7 @@ void Order::partialFill(Quantity fill_qty) {
     }
 
     qty_ -= fill_qty;
+    parentLimit->totalVolume_ -= fill_qty;
 }
 
 void Order::removeSelf() {

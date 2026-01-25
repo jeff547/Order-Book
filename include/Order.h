@@ -1,7 +1,7 @@
 #ifndef ORDER_H
 #define ORDER_H
 
-#include "constants.h"
+#include "Types.h"
 
 class Limit;
 
@@ -30,10 +30,10 @@ public:
         , orderType_(orderType)
         , side_(side) {}
 
-    const OrderId getOrderId() const { return orderId_; }
-    const OrderType getOrderType() const { return orderType_; }
-    const Side getSide() const { return side_; }
-    const Price getPrice() const { return price_; }
+    OrderId getOrderId() const { return orderId_; }
+    OrderType getOrderType() const { return orderType_; }
+    Side getSide() const { return side_; }
+    Price getPrice() const { return price_; }
     Quantity getQuantity() const { return qty_; }
     Limit* getParentLimit() const { return parentLimit; }
     const Order* getNext() const { return nextOrder; }

@@ -1,5 +1,5 @@
-#ifndef CONSTANTS_H
-#define CONSTANTS_H
+#ifndef TYPES_H
+#define TYPES_H
 
 #include <cstdint>
 
@@ -13,8 +13,16 @@ enum class Side : std::uint8_t {
 };
 
 enum class OrderType : std::uint8_t {
-    MARKET,
     LIMIT,
+    CANCEL,
+    MARKET,
+};
+
+struct Trade {
+    OrderId takerOrderId;
+    OrderId makerOrderId;
+    Price price;
+    Quantity quantity;
 };
 
 #endif
