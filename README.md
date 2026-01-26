@@ -62,7 +62,7 @@ Measured with a realistic distribution of 70% Limit, 25% Cancel, and 5% Market o
 | --- | --- | 
 | **Throughput (Pure)** | **~14,921,839 ops/sec** | 
 | **Throughpu (w/ Latency Tracking)** | **~12,608,471 ops/sec** | 
-| **Median Latency** | **42 ns**  |
+| **Median Latency** | **~42 ns**  |
 | **P90 Latency** | **~166 ns**  |
 | **P99 Latency** | **~292 ns**  |
 
