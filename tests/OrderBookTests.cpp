@@ -85,7 +85,7 @@ TEST_F(OrderBookTest, PartialFill_IncomingIsLarger) {
     // 2. Buyer (#2) is partially filled (Remains with 50)
     EXPECT_FALSE(hasOrder(1));
     ASSERT_TRUE(hasOrder(2));
-    EXPECT_EQ(getOrder(2)->getQuantity(), 50);
+    EXPECT_EQ(getOrder(2)->qty, 50);
 }
 
 TEST_F(OrderBookTest, PartialFill_RestingIsLarger) {
@@ -101,7 +101,7 @@ TEST_F(OrderBookTest, PartialFill_RestingIsLarger) {
     // 2. Seller (#1) is partially filled (Remains with 75)
     EXPECT_FALSE(hasOrder(2));
     ASSERT_TRUE(hasOrder(1));
-    EXPECT_EQ(getOrder(1)->getQuantity(), 75);
+    EXPECT_EQ(getOrder(1)->qty, 75);
 }
 
 TEST_F(OrderBookTest, PartialFill_DoesNotChangeQueueOrder) {
@@ -113,9 +113,9 @@ TEST_F(OrderBookTest, PartialFill_DoesNotChangeQueueOrder) {
     Order* first = getOrder(1);
     Order* second = getOrder(2);
 
-    EXPECT_EQ(first->getQuantity(), 5);
-    EXPECT_EQ(first->getNext(), second);
-    EXPECT_EQ(second->getPrev(), first);
+    EXPECT_EQ(first->qty, 5);
+    EXPECT_EQ(first->nextOrder, second);
+    EXPECT_EQ(second->prevOrder, first);
 }
 
 // =====================================================================
@@ -139,7 +139,7 @@ TEST_F(OrderBookTest, PriceTimePriority) {
     EXPECT_FALSE(hasOrder(1));
 
     ASSERT_TRUE(hasOrder(2));
-    EXPECT_EQ(getOrder(2)->getQuantity(), 5);
+    EXPECT_EQ(getOrder(2)->qty, 5);
 }
 
 // =====================================================================
@@ -162,7 +162,7 @@ TEST_F(OrderBookTest, MarketBuy_SweepsLevels) {
     EXPECT_FALSE(hasOrder(2)); // Filled
 
     ASSERT_TRUE(hasOrder(3)); // Survivor
-    EXPECT_EQ(getOrder(3)->getQuantity(), 5);
+    EXPECT_EQ(getOrder(3)->qty, 5);
 }
 
 TEST_F(OrderBookTest, MarketSell_SweepsBids_HighToLow) {
@@ -180,7 +180,7 @@ TEST_F(OrderBookTest, MarketSell_SweepsBids_HighToLow) {
     EXPECT_FALSE(hasOrder(2)); // $101 Filled
 
     ASSERT_TRUE(hasOrder(3)); // $100 Survivor
-    EXPECT_EQ(getOrder(3)->getQuantity(), 5);
+    EXPECT_EQ(getOrder(3)->qty, 5);
 }
 
 TEST_F(OrderBookTest, MarketBuy_ExceedsLiquidity) {
@@ -219,18 +219,18 @@ TEST_F(OrderBookTest, LinkedList_PointersAreConsistent) {
 
     // 2. Verify Initial State (A <-> B <-> C)
     // Use .getPrev() instead of ->prevOrder
-    EXPECT_EQ(orderB->getPrev(), orderA);
-    EXPECT_EQ(orderB->getNext(), orderC);
+    EXPECT_EQ(orderB->prevOrder, orderA);
+    EXPECT_EQ(orderB->nextOrder, orderC);
 
     // 3. ACTION: Delete Middle (B)
     book.cancelOrder(2);
 
     // 4. Verify Stitching (A <-> C)
     // A should skip B and point to C
-    EXPECT_EQ(orderA->getNext(), orderC);
+    EXPECT_EQ(orderA->nextOrder, orderC);
 
     // C should skip B and point back to A
-    EXPECT_EQ(orderC->getPrev(), orderA);
+    EXPECT_EQ(orderC->prevOrder, orderA);
 }
 
 TEST_F(OrderBookTest, DeleteHead_UpdatesLimitPointer) {
@@ -243,14 +243,14 @@ TEST_F(OrderBookTest, DeleteHead_UpdatesLimitPointer) {
 
     // Verification
     Order* orderB = getOrder(2);
-    Limit* limit = orderB->getParentLimit(); // Uses the getter we added to Order.h
+    Limit* limit = orderB->parentLimit; // Uses the getter we added to Order.h
 
     // Check if Limit's head is now B
     // Uses the getter we added to Limit.h
-    EXPECT_EQ(limit->getHead(), orderB);
+    EXPECT_EQ(limit->head, orderB);
 
     // Order B should now be the front (prev is null)
-    EXPECT_EQ(orderB->getPrev(), nullptr);
+    EXPECT_EQ(orderB->prevOrder, nullptr);
 }
 
 TEST_F(OrderBookTest, EmptyPriceLevel_IsRemovedAfterFill) {

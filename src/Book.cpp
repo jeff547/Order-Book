@@ -24,50 +24,52 @@ void Book::matchOrder(OrderId incomingOrderId, BookMap& opposingBook, Price orde
     while (fillQty > 0 && !opposingBook.empty()) {
         // Highest Bid or Lowest Ask
         auto bestLimitIt = opposingBook.begin();
-        Limit* bestPriceLimit = bestLimitIt->second;
+        Limit* bestLimit = bestLimitIt->second;
 
         // Check if Profitable
-        if (side == Side::BUY && bestPriceLimit->getLimitPrice() > orderLimitPrice)
+        if (side == Side::BUY && bestLimit->limitPrice > orderLimitPrice)
             break;
-        if (side == Side::SELL && bestPriceLimit->getLimitPrice() < orderLimitPrice)
+        if (side == Side::SELL && bestLimit->limitPrice < orderLimitPrice)
             break;
 
         // Iterate through Limit Queue
-        while (fillQty > 0 && bestPriceLimit->getSize() > 0) {
-            Order* headOrder = bestPriceLimit->getHead();
-
-            Quantity tradeQty = std::min(fillQty, headOrder->getQuantity());
+        while (fillQty > 0 && bestLimit->size > 0) {
+            Order* headOrder = bestLimit->head;
 
             if (tradeListener) {
+                Quantity tradeQty = std::min(fillQty, headOrder->qty);
+
                 tradeListener({
                     incomingOrderId,
-                    headOrder->getOrderId(),
-                    bestPriceLimit->getLimitPrice(),
+                    headOrder->orderId,
+                    bestLimit->limitPrice,
                     tradeQty,
                 });
             }
 
-            if (headOrder->getQuantity() > fillQty) {
+            if (headOrder->qty > fillQty) {
                 // Case A: (Full Fill of Incoming Order)
-                headOrder->partialFill(fillQty);
+                headOrder->fill(fillQty);
+                bestLimit->totalVolume -= headOrder->qty;
                 fillQty = 0;
             }
 
             else {
                 // Case B: (Partial Fill of Incoming Order)
-                fillQty -= headOrder->getQuantity();
-
+                fillQty -= headOrder->qty;
+                // Fully Fill Takers Order
+                headOrder->fill(headOrder->qty);
                 // Remove from Order Map
-                orderMap.erase(headOrder->getOrderId());
+                orderMap.erase(headOrder->orderId);
                 // Remove from Limit Queue
-                headOrder->removeSelf();
+                bestLimit->removeOrder(headOrder);
                 delete headOrder;
             }
         }
 
         // Remove Limit When Empty
-        if (bestPriceLimit->getSize() == 0) {
-            delete bestPriceLimit;
+        if (bestLimit->size == 0) {
+            delete bestLimit;
             opposingBook.erase(bestLimitIt);
         }
     }
@@ -132,21 +134,22 @@ void Book::addMarketOrder(OrderId orderId, Quantity quantity, Side side) {
 }
 
 void Book::cancelOrder(OrderId orderId) {
+    // O(1) Order Lookup
     auto it = orderMap.find(orderId);
     // Check if order actually exists
     if (it == orderMap.end())
         return;
 
     Order* order = it->second;
-    Limit* parentLimit = order->getParentLimit();
+    Limit* parentLimit = order->parentLimit;
 
-    order->removeSelf();
+    parentLimit->removeOrder(order);
 
-    if (parentLimit->getSize() == 0) {
-        if (order->getSide() == Side::BUY) {
-            bidsMap.erase(parentLimit->getLimitPrice());
-        } else if (order->getSide() == Side::SELL) {
-            asksMap.erase(parentLimit->getLimitPrice());
+    if (parentLimit->size == 0) {
+        if (order->side == Side::BUY) {
+            bidsMap.erase(parentLimit->limitPrice);
+        } else {
+            asksMap.erase(parentLimit->limitPrice);
         }
 
         delete parentLimit;

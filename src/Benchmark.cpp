@@ -15,15 +15,15 @@
 #include <unistd.h>
 #endif
 
-const int ORDER_COUNT = 10'000'000;
-const int MAX_ORDERS = 25'000'000;
-const int ITERATIONS = 15;
+const int ORDER_COUNT = 2'000'000;
+const int MAX_ORDERS = 10'000'000;
+const int ITERATIONS = 10;
 
 struct OrderAction {
-    OrderType type;
     OrderId id;
     Price price;
     Quantity qty;
+    OrderType type;
     Side side;
 };
 
@@ -60,6 +60,7 @@ private:
 
     std::vector<double> statsThroughput;
     std::vector<double> statsP50;
+    std::vector<double> statsP90;
     std::vector<double> statsP99;
     std::vector<double> statsMax;
 
@@ -157,6 +158,7 @@ public:
             long long maxLat = latencies.back();
 
             statsP50.push_back(p50);
+            statsP90.push_back(p90);
             statsP99.push_back(p99);
             statsMax.push_back(maxLat);
 
@@ -184,19 +186,21 @@ public:
         std::cout << "\n============================================\n";
         std::cout << "             BENCHMARK SUMMARY              \n";
         std::cout << "============================================\n";
-        std::cout << "Order Count: " << formatNum(ORDER_COUNT) << " Orders \n";
-        std::cout << "Runs       : " << statsThroughput.size() << "\n";
-        std::cout << "Avg Tput   : " << formatNum(avgTput) << " ops/sec\n";
+        std::cout << "Orders Per Run    : " << formatNum(ORDER_COUNT) << " Orders \n";
+        std::cout << "Total Runs        : " << statsThroughput.size() << "\n";
+        std::cout << "Avg Throughput    : " << formatNum(avgTput) << " ops/sec\n";
 
         if (measureLatency && !statsP50.empty()) {
             long long avgP50 = static_cast<long long>(computeAvg(statsP50));
+            long long avgP90 = static_cast<long long>(computeAvg(statsP90));
             long long avgP99 = static_cast<long long>(computeAvg(statsP99));
             long long avgMax = static_cast<long long>(computeAvg(statsMax));
 
             std::cout << "--------------------------------------------\n";
-            std::cout << "Avg P50    : " << formatNum(avgP50) << " ns\n";
-            std::cout << "Avg P99    : " << formatNum(avgP99) << " ns\n";
-            std::cout << "Avg Max    : " << formatNum(avgMax) << " ns\n";
+            std::cout << "P50 Latency   : " << formatNum(avgP50) << " ns\n";
+            std::cout << "P90 Latency   : " << formatNum(avgP90) << " ns\n";
+            std::cout << "P99 Latency   : " << formatNum(avgP99) << " ns\n";
+            std::cout << "Max Latency   : " << formatNum(avgMax) << " ns\n";
         }
         std::cout << "============================================\n";
     }
@@ -228,15 +232,15 @@ std::vector<OrderAction> pregenerate(int count) {
         if (type == OrderType::LIMIT || activeIds.empty()) {
             // Limit Order
             Price p = static_cast<Price>(priceDist(rng));
-            actions.push_back({OrderType::LIMIT, curId, p, qty, side});
+            actions.push_back({curId, p, qty, OrderType::LIMIT, side});
             activeIds.push_back(curId++);
         } else if (type == OrderType::MARKET) {
             // Market Order
-            actions.push_back({type, curId++, 0, qty, side});
+            actions.push_back({curId++, 0, qty, type, side});
         } else if (type == OrderType::CANCEL) {
             // Cancel Order
             size_t idx = std::uniform_int_distribution<size_t>(0, activeIds.size() - 1)(rng);
-            actions.push_back({OrderType::CANCEL, activeIds[idx], 0, 0, Side::BUY});
+            actions.push_back({activeIds[idx], 0, 0, OrderType::CANCEL, Side::BUY});
 
             activeIds[idx] = activeIds.back();
             activeIds.pop_back();

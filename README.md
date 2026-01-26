@@ -1,9 +1,3 @@
-Here is the updated `README.md`. I have integrated your new **Benchmarking Harness**, the **Performance Results** (showing off those M3 numbers), and updated the build instructions to ensure users compile with optimizations (`Release` mode).
-
-I also updated the **Roadmap** to reflect the progress you've made.
-
----
-
 # High-Performance Limit Order Book (LOB)
 
 A low-latency, single-threaded matching engine implemented in C++20. This project simulates the core infrastructure of a financial exchange, prioritizing memory layout optimization, instruction cache locality, and algorithmic efficiency.
@@ -61,18 +55,17 @@ This engine includes a dedicated deterministic benchmark harness (`Benchmark.cpp
 
 * **Warmup:** 1,000,000 cycle warmup phase to prime the Branch Predictor and Instruction Cache.
 
-### Current Results (10M Order Soak Test)
+### Current Results (2M Order Microbenchmark)
 
-The engine currently sustains **~9.5 million operations per second** with sub-microsecond tail latency on cached datasets.
+The engine currently sustains **~8.5 million operations per second** with sub-microsecond tail latency on cached datasets.
 
-| Metric | Result | Note |
-| --- | --- | --- |
-| **Throughput** | **~9,500,000 ops/sec** | ~105ns per order |
-| **Median Latency** | **42 ns** | L2 Cache Resident |
-| **P99 Latency** | **~458 ns** | Worst-case match/traversal |
-| **Max Latency** | **~15 μs** | OS Context Switch / Interrupts |
+| Metric | Result | 
+| --- | --- | 
+| **Throughput** | **~8,500,000 ops/sec** | 
+| **Median Latency** | **42 ns**  |
+| **P99 Latency** | **~458 ns**  |
+| **Max Latency** | **~15 μs**  |
 
-*> Note: These results represent an "L2 Cache Resident" scenario (Active working set < 16MB). Performance scales to ~4M ops/sec when exceeding CPU cache limits.*
 
 ## 📦 Building and Running
 
@@ -84,7 +77,7 @@ The engine currently sustains **~9.5 million operations per second** with sub-mi
 
 ### 1. Build (Release Mode)
 
-**Critical:** You must build in `Release` mode to enable `-O3` and `-march=native` optimizations. Debug builds will be 10x slower.
+**Critical:** You must build in `Release` mode to enable `-O3` and `-march=native` optimizations. 
 
 ```bash
 mkdir build && cd build
@@ -98,7 +91,7 @@ make
 Run the harness with the latency flag enabled to see the P99 histograms.
 
 ```bash
-# Run 10 Million Order Benchmark with Latency Tracking
+# Run 10 Million Order Benchmark with Latency Tracking (Remove --latency for just tput results)
 ./src/run_benchmark --latency
 
 ```
@@ -112,22 +105,14 @@ Verifies core matching logic, edge cases (empty book, self-match), and order lif
 
 ```
 
-## 🧪 Testing Strategy
-
-This project employs a three-tiered testing strategy:
-
-1. **Unit Tests (GTest):** Validates that market orders correctly "walk the book" (match against multiple levels), handle partial fills, and that atomic Add/Cancel/Modify operations maintain book integrity.
-2. **Soak Testing:** The benchmark runs 20 iterations of 10,000,000 orders (200M total) to detect memory leaks and long-term fragmentation issues.
-3. **Deterministic Simulation:** The benchmark uses a seeded PRNG (`std::mt19937`) to ensure reproducible "Market Crash" and "Liquidity Drought" scenarios.
-
 ## 🗺 Roadmap
 
 * [x] Hybrid Architecture (Map + Intrusive List)
 * [x] O(1) Order Cancellation
 * [x] Memory Layout Optimization (32-byte alignment)
-* [x] **High-Precision Benchmark Harness:** Implemented Latency/Throughput measurement with CPU pinning.
+* [x] **High-Precision Benchmarking:** Implemented Latency/Throughput measurement with CPU pinning.
 * [ ] **Object Pooling:** Implement a slab allocator to replace `new`/`delete` and eliminate heap fragmentation.
-* [ ] **Lock-Free Concurrency:** Investigate `std::atomic` for a multi-threaded matching engine (SPSC Ring Buffer for logging).
+
 
 ## 📄 License
 

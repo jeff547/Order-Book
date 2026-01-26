@@ -1,29 +1,65 @@
+#ifndef LIMIT_H
+#define LIMIT_H
+
+#include "Order.h"
 #include "Types.h"
 
-class Order;
+struct Order;
 
-class Limit {
-private:
-    // 8 Bytes
+struct Limit {
+    // Pointers (16 bytes)
     Order* head = nullptr;
     Order* tail = nullptr;
-    // 4 Bytes
-    const Price limitPrice_;
-    Quantity size_;
-    Quantity totalVolume_;
+    // Data (12 bytes)
+    Price limitPrice;
+    Quantity size;
+    Quantity totalVolume;
 
-    friend class Order;
+    Limit(Price price)
+        : limitPrice(price)
+        , size(0)
+        , totalVolume(0) {}
 
-public:
-    Limit(Price limitPrice, Quantity size = 0, Quantity totalVolume = 0)
-        : limitPrice_(limitPrice)
-        , size_(size)
-        , totalVolume_(totalVolume) {}
+    void addOrder(Order* order) {
+        order->parentLimit = this;
 
-    Order* getHead() const { return head; }
-    Price getLimitPrice() const { return limitPrice_; }
-    Quantity getSize() const { return size_; }
-    Quantity getTotalVolume() const { return totalVolume_; }
+        if (head == nullptr) {
+            head = tail = order;
+        } else {
+            tail->nextOrder = order;
+            order->prevOrder = tail;
+            order->nextOrder = nullptr;
+            tail = order;
+        }
 
-    void addOrder(Order* order);
+        size++;
+        totalVolume += order->qty;
+    }
+
+    void removeOrder(Order* order) {
+        // Unlink from Queue
+        if (order->prevOrder == nullptr) {
+            // Case: Order is Head
+            head = order->nextOrder;
+        } else {
+            order->prevOrder->nextOrder = order->nextOrder;
+        }
+
+        if (order->nextOrder == nullptr) {
+            // Case: Order is Tail
+            tail = order->prevOrder;
+        } else {
+            order->nextOrder->prevOrder = order->prevOrder;
+        }
+
+        // Update Size
+        size--;
+
+        // Clean up
+        order->nextOrder = nullptr;
+        order->prevOrder = nullptr;
+        order->parentLimit = nullptr;
+    }
 };
+
+#endif

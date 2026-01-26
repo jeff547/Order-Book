@@ -24,6 +24,7 @@ private:
 
     template <typename BookMap>
     void matchOrder(OrderId incomingOrderId, BookMap& opposingBook, Price price, Quantity& quantity, Side side);
+    void removeOrder(Order* order);
 
     friend class OrderBookTest;
 

@@ -3,45 +3,30 @@
 
 #include "Types.h"
 
-class Limit;
+struct Limit;
 
-class Order {
+struct Order {
 
-private:
-    // 8 bytes
+    // Pointers (8 bytes each = 24 bytes)
     Order* nextOrder = nullptr;
     Order* prevOrder = nullptr;
     Limit* parentLimit = nullptr;
-    const OrderId orderId_;
-    // 4 bytes
-    const Price price_;
-    Quantity qty_;
-    // 2 bytes
-    const OrderType orderType_;
-    const Side side_;
+    // Data (8 bytes + 4 bytes + 4 bytes = 16 bytes)
+    OrderId orderId;
+    Price price;
+    Quantity qty;
+    // Enums (1 byte each + padding = 2-8 bytes)
+    OrderType orderType;
+    Side side;
 
-    friend class Limit;
+    Order(OrderId id, Price p, Quantity q, OrderType type, Side s)
+        : orderId(id)
+        , price(p)
+        , qty(q)
+        , orderType(type)
+        , side(s) {}
 
-public:
-    Order(OrderId orderId, Price price, Quantity qty, OrderType orderType, Side side)
-        : orderId_(orderId)
-        , price_(price)
-        , qty_(qty)
-        , orderType_(orderType)
-        , side_(side) {}
-
-    OrderId getOrderId() const { return orderId_; }
-    OrderType getOrderType() const { return orderType_; }
-    Side getSide() const { return side_; }
-    Price getPrice() const { return price_; }
-    Quantity getQuantity() const { return qty_; }
-    Limit* getParentLimit() const { return parentLimit; }
-    const Order* getNext() const { return nextOrder; }
-    const Order* getPrev() const { return prevOrder; }
-
-    void partialFill(Quantity qty);
-    void removeSelf();
-    bool isFilled() const;
+    void fill(Quantity fillQty) { qty -= fillQty; }
 };
 
 #endif
