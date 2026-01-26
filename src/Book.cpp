@@ -2,45 +2,34 @@
 #include <limits>
 
 Book::~Book() {
-    for (auto const& [key, val] : orderMap) {
-        delete val;
-    }
     orderMap.clear();
-
-    for (auto const& [key, val] : bidsMap) {
-        delete val;
-    }
     bidsMap.clear();
-
-    for (auto const& [key, val] : asksMap) {
-        delete val;
-    }
     asksMap.clear();
 }
 
 template <typename BookMap>
-void Book::matchOrder(OrderId incomingOrderId, BookMap& opposingBook, Price orderLimitPrice, Quantity& fillQty,
-                      Side side) {
+void Book::matchOrder(OrderId takerId, BookMap& opposingBook, Price price, Quantity& fillQty, Side side) {
     while (fillQty > 0 && !opposingBook.empty()) {
         // Highest Bid or Lowest Ask
         auto bestLimitIt = opposingBook.begin();
         Limit* bestLimit = bestLimitIt->second;
 
         // Check if Profitable
-        if (side == Side::BUY && bestLimit->limitPrice > orderLimitPrice)
+        if (side == Side::BUY && bestLimit->limitPrice > price)
             break;
-        if (side == Side::SELL && bestLimit->limitPrice < orderLimitPrice)
+        if (side == Side::SELL && bestLimit->limitPrice < price)
             break;
 
         // Iterate through Limit Queue
         while (fillQty > 0 && bestLimit->size > 0) {
             Order* headOrder = bestLimit->head;
 
+            // Benchmarking Only
             if (tradeListener) {
                 Quantity tradeQty = std::min(fillQty, headOrder->qty);
 
                 tradeListener({
-                    incomingOrderId,
+                    takerId,
                     headOrder->orderId,
                     bestLimit->limitPrice,
                     tradeQty,
@@ -48,68 +37,70 @@ void Book::matchOrder(OrderId incomingOrderId, BookMap& opposingBook, Price orde
             }
 
             if (headOrder->qty > fillQty) {
-                // Case A: (Full Fill of Incoming Order)
+                // Case A: (Full Fill of Taker's Order)
                 headOrder->fill(fillQty);
-                bestLimit->totalVolume -= headOrder->qty;
+                bestLimit->totalVolume -= fillQty;
                 fillQty = 0;
             }
 
             else {
-                // Case B: (Partial Fill of Incoming Order)
+                // Case B: (Partial Fill of Taker's Order)
                 fillQty -= headOrder->qty;
-                // Fully Fill Takers Order
+                // Fully Fill Maker's Order
                 headOrder->fill(headOrder->qty);
                 // Remove from Order Map
                 orderMap.erase(headOrder->orderId);
                 // Remove from Limit Queue
                 bestLimit->removeOrder(headOrder);
-                delete headOrder;
+                orderPool.release(headOrder);
             }
         }
 
         // Remove Limit When Empty
         if (bestLimit->size == 0) {
-            delete bestLimit;
+            limitPool.release(bestLimit);
             opposingBook.erase(bestLimitIt);
         }
     }
 }
 
-void Book::addLimitOrder(OrderId orderId, Price orderLimitPrice, Quantity fillQty, Side side) {
+void Book::addLimitOrder(OrderId id, Price price, Quantity qty, Side side) {
     switch (side) {
     case Side::BUY:
-        matchOrder(orderId, asksMap, orderLimitPrice, fillQty, side);
+        matchOrder(id, asksMap, price, qty, side);
         break;
     case Side::SELL:
-        matchOrder(orderId, bidsMap, orderLimitPrice, fillQty, side);
+        matchOrder(id, bidsMap, price, qty, side);
         break;
     default:
         __builtin_unreachable();
     }
 
     // If there are still shares to fill, create a new order
-    if (fillQty > 0) {
+    if (qty > 0) {
         // Create new order and add to Order Lookup Map
-        Order* newOrder = new Order(orderId, orderLimitPrice, fillQty, OrderType::LIMIT, side);
-        orderMap.emplace(orderId, newOrder);
+        Order* newOrder = orderPool.acquire(id, price, qty, OrderType::LIMIT, side);
+        orderMap.emplace(id, newOrder);
 
         // Add order to respective book
         switch (side) {
         case Side::BUY: { // Get reference to the pointer location (auto-creates nullptr if missing)
-            Limit*& limit = bidsMap[orderLimitPrice];
+            Limit*& limit = bidsMap[price];
 
             // If it was null, allocate it now
-            if (!limit)
-                limit = new Limit(orderLimitPrice);
+            if (!limit) {
+                limit = limitPool.acquire(price);
+            }
 
             limit->addOrder(newOrder);
             break;
         }
         case Side::SELL: {
-            Limit*& limit = asksMap[orderLimitPrice];
+            Limit*& limit = asksMap[price];
 
-            if (!limit)
-                limit = new Limit(orderLimitPrice);
+            if (!limit) {
+                limit = limitPool.acquire(price);
+            }
 
             limit->addOrder(newOrder);
             break;
@@ -120,22 +111,22 @@ void Book::addLimitOrder(OrderId orderId, Price orderLimitPrice, Quantity fillQt
     }
 }
 
-void Book::addMarketOrder(OrderId orderId, Quantity quantity, Side side) {
+void Book::addMarketOrder(OrderId id, Quantity qty, Side side) {
     switch (side) {
     case Side::BUY:
-        matchOrder(orderId, asksMap, std::numeric_limits<Price>::max(), quantity, side);
+        matchOrder(id, asksMap, std::numeric_limits<Price>::max(), qty, side);
         break;
     case Side::SELL:
-        matchOrder(orderId, bidsMap, std::numeric_limits<Price>::min(), quantity, side);
+        matchOrder(id, bidsMap, std::numeric_limits<Price>::min(), qty, side);
         break;
     default:
         __builtin_unreachable();
     }
 }
 
-void Book::cancelOrder(OrderId orderId) {
+void Book::cancelOrder(OrderId id) {
     // O(1) Order Lookup
-    auto it = orderMap.find(orderId);
+    auto it = orderMap.find(id);
     // Check if order actually exists
     if (it == orderMap.end())
         return;
@@ -152,9 +143,9 @@ void Book::cancelOrder(OrderId orderId) {
             asksMap.erase(parentLimit->limitPrice);
         }
 
-        delete parentLimit;
+        limitPool.release(parentLimit);
     }
 
     orderMap.erase(it);
-    delete order;
+    orderPool.release(order);
 }

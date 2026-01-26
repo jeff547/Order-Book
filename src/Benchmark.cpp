@@ -19,6 +19,8 @@ const int ORDER_COUNT = 2'000'000;
 const int MAX_ORDERS = 10'000'000;
 const int ITERATIONS = 10;
 
+static std::int64_t timestamps[MAX_ORDERS + 1];
+
 struct OrderAction {
     OrderId id;
     Price price;
@@ -54,15 +56,10 @@ void pinThreadToCore([[maybe_unused]] int core_id) {
 
 class BenchmarkRunner {
 private:
-    std::vector<std::int64_t> submissionTimes;
     std::vector<long long> latencies;
     bool measureLatency = false;
 
-    std::vector<double> statsThroughput;
-    std::vector<double> statsP50;
-    std::vector<double> statsP90;
-    std::vector<double> statsP99;
-    std::vector<double> statsMax;
+    std::vector<double> statsThroughput, statsP50, statsP90, statsP99, statsMax;
 
     std::string formatNum(long long n) {
         std::string s = std::to_string(n);
@@ -75,23 +72,23 @@ private:
     }
 
 public:
-    BenchmarkRunner() { submissionTimes.resize(MAX_ORDERS + 1, 0); }
-
     void setMeasureLatency(bool val) { measureLatency = val; }
 
     void run(const std::vector<OrderAction>& actions, int iteration) {
-        Book book;
-        latencies.clear();
-        latencies.reserve(actions.size());
+        Book book(ORDER_COUNT + 1000, 100000);
+        ;
 
         // Trade Callback for Tick to Trade Latency
         if (measureLatency) {
+            latencies.clear();
+            latencies.reserve(actions.size());
+
             book.setTradeCallback([&](const Trade& t) {
                 auto now = std::chrono::duration_cast<std::chrono::nanoseconds>(
                                std::chrono::steady_clock::now().time_since_epoch())
                                .count();
 
-                std::int64_t start = submissionTimes[t.takerOrderId];
+                std::int64_t start = timestamps[t.takerOrderId];
 
                 if (start > 0) {
                     latencies.push_back(now - start);
@@ -101,7 +98,7 @@ public:
 
         // --- Warmup Phase ---
         {
-            Book warmupBook;
+            Book warmupBook(100000, 1000);
 
             for (int i = 0; i < 1'000'000; ++i) {
                 warmupBook.addLimitOrder(i, 10000 + (i % 10), 1, Side::BUY);
@@ -114,10 +111,9 @@ public:
 
         for (const auto& order : actions) {
             if (measureLatency) {
-                //
-                submissionTimes[order.id] = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                                                std::chrono::steady_clock::now().time_since_epoch())
-                                                .count();
+                timestamps[order.id] = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                           std::chrono::steady_clock::now().time_since_epoch())
+                                           .count();
             }
 
             switch (order.type) {

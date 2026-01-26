@@ -3,7 +3,7 @@
 
 class OrderBookTest : public ::testing::Test {
 protected:
-    Book book;
+    Book book{100000, 1000};
 
     // ==========================================
     // INSPECTOR METHODS (Helpers)

@@ -20,6 +20,11 @@ struct Limit {
         , size(0)
         , totalVolume(0) {}
 
+    ~Limit() {
+        head = nullptr;
+        tail = nullptr;
+    }
+
     void addOrder(Order* order) {
         order->parentLimit = this;
 

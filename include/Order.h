@@ -26,6 +26,12 @@ struct Order {
         , orderType(type)
         , side(s) {}
 
+    ~Order() {
+        nextOrder = nullptr;
+        prevOrder = nullptr;
+        parentLimit = nullptr;
+    }
+
     void fill(Quantity fillQty) { qty -= fillQty; }
 };
 
