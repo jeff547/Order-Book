@@ -2,8 +2,6 @@
 
 A low-latency, single-threaded matching engine implemented in C++20. This project simulates the core infrastructure of a financial exchange, prioritizing memory layout optimization, instruction cache locality, and algorithmic efficiency.
 
-It implements a **Hybrid Architecture** combining `std::map` for price level discovery with **Intrusive Linked Lists** for constant-time order management.
-
 ## 🛠 Architecture
 
 ## 1. Switch From std::map To std::vector (Data Structures)
