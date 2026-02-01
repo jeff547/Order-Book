@@ -21,10 +21,10 @@ Traditional matching engines rely on `std::map` (Red-Black Trees).
 We abandon trees entirely in favor of a pre-allocated `std::vector` where the **index** corresponds directly to the **price**.
 
 * **Impact:**
-* **Contiguous Memory:** `std::vector` allocates one giant block of memory. Price 100, 101, and 102 are physically next to each other in RAM. Thus when the CPU loads Price 100 into its cache, the prefetcher automatically pulls in Price 101, 102, and 103.
-* **Instant Access:** Lookup complexity is **constant time** O(1), regardless of book depth.
+    * **Contiguous Memory:** `std::vector` allocates one giant block of memory. Price 100, 101, and 102 are physically next to each other in RAM. Thus when the CPU loads Price 100 into its cache, the prefetcher automatically pulls in Price 101, 102, and 103.
+    * **Instant Access:** Lookup complexity is **constant time** O(1), regardless of book depth.
 * **Potential Drawback:**
-* **Sparse Price Levels** If price levels are sparse, then we will have to traverse the array in order to find a valid order. This is addressed in the next optimization.
+    * **Sparse Price Levels** If price levels are sparse, then we will have to traverse the array in order to find a valid order. This is addressed in the next optimization.
 
 
 ---
@@ -82,9 +82,9 @@ int bitPos = 63 - __builtin_clzll(masks[blockIndex]);
 * **Standard List (`std::list`)**: When you put an object into a standard list, the list allocates a new node wrapper on the heap that points to your data.
 
 * **Result**: 
-* **Extra Memory** You have two memory allocations: one for your Order object, and one for the Node wrapper. 
-* **Pointer Indirection** Standard `std::list<Order*>` requires triple indirection (List Node → Smart Pointer → Order).
-* **Cache Misses** They are likely far apart in RAM. To access the order, the CPU has to load the Node, read the pointer, and then jump to the Order (**Double Cache Miss**).
+    * **Extra Memory** You have two memory allocations: one for your Order object, and one for the Node wrapper. 
+    * **Pointer Indirection** Standard `std::list<Order*>` requires triple indirection (List Node → Smart Pointer → Order).
+    * **Cache Misses** They are likely far apart in RAM. To access the order, the CPU has to load the Node, read the pointer, and then jump to the Order (**Double Cache Miss**).
 
 ### Optimized Solution: Intrusive Linked List
 
@@ -93,8 +93,8 @@ You **embed** the `next` and `prev` pointers inside the Order struct itself.
 * **Result**: The Order is the node. There is no external **wrapper**.
 
 * **Impact**: 
-* **No Extra Memory Allocations:** When you have a pointer to an Order, you immediately have the pointers to the `next` Order. It is extremely **cache-friendly**.
-* **`O(1)` Removal:** Since the Order contains its own `prev` and `next` pointers, it can literally remove itself from the chain without asking the list container.
+    * **No Extra Memory Allocations:** When you have a pointer to an Order, you immediately have the pointers to the `next` Order. It is extremely **cache-friendly**.
+    * **`O(1)` Removal:** Since the Order contains its own `prev` and `next` pointers, it can literally remove itself from the chain without asking the list container.
 
 ```text
 [ Bids ]
@@ -128,11 +128,11 @@ This process introduces unpredictable latency spikes that ruin P99 performance.
 
 We implemented a custom **Object Pool** that pre-allocates a massive contiguous block of memory ("Slab") at startup.
 
-* **LIFO Recycling:** Deleted orders are pushed onto a simple stack. When a new order creates a need for an object, we pop the most recently deleted one.
 * **Impact:**
-* **Determinism** You pre-allocate all the memory at startup, so it's the same memory being used throughout the session, preventing `jitters`.
-* **Zero System Calls:** The Engine never interacts with the OS kernel during the trading phase.
-* **Imporved Cache Locality** When one object is accessed, nearby objects are also loaded into the CPU's cache, significantly reducing access latency compared to a fresh allocation.
+    * **Determinism** You pre-allocate all the memory at startup, so it's the same memory being used throughout the session, preventing `jitters`.
+    * **Zero System Calls:** The Engine never interacts with the OS kernel during the trading phase.
+    * **Imporved Cache Locality** When one object is accessed, nearby objects are also loaded into the CPU's cache, significantly reducing access latency compared to a fresh allocation.
+    * **LIFO Recycling:** Deleted orders are pushed onto a simple stack. When a new order creates a need for an object, we pop the most recently deleted one.
 
 
 ---
