@@ -75,7 +75,7 @@ public:
     void setMeasureLatency(bool val) { measureLatency = val; }
 
     void run(const std::vector<OrderAction>& actions, int iteration) {
-        Book book(ORDER_COUNT + 1000, 100000);
+        Book book(ORDER_COUNT + 1000);
         ;
 
         // Trade Callback for Tick to Trade Latency
@@ -98,9 +98,9 @@ public:
 
         // --- Warmup Phase ---
         {
-            Book warmupBook(100000, 1000);
+            Book warmupBook(100000);
 
-            for (int i = 0; i < 1'000'000; ++i) {
+            for (int i = 0; i < 100'000; ++i) {
                 warmupBook.addLimitOrder(i, 10000 + (i % 10), 1, Side::BUY);
                 warmupBook.cancelOrder(i);
             }
@@ -211,7 +211,7 @@ std::vector<OrderAction> pregenerate(int count) {
     // 70% Limit Order, 25 Cancel Order, 5 Market Order
     std::discrete_distribution<int> typeDist({70, 25, 5});
     // Range from [$99.70, $100.30]
-    std::normal_distribution<double> priceDist(10000.0, 30.0);
+    std::normal_distribution<double> priceDist(10000.0, 100.0);
     // 50/50 Buy/Sell
     std::uniform_int_distribution<int> sideDist(0, 1);
     // Skewed right (close to real-world)

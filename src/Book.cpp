@@ -1,24 +1,46 @@
 #include "Book.h"
 #include <limits>
 
-Book::~Book() {
-    orderMap.clear();
-    bidsMap.clear();
-    asksMap.clear();
+Book::~Book() { orderMap.clear(); }
+
+void Book::updateBestAsk() {
+    long long next = asksMask.scanAsc(lowestAsk);
+    lowestAsk = (next == -1) ? MAX_PRICE : static_cast<Price>(next);
 }
 
-template <typename BookMap>
-void Book::matchOrder(OrderId takerId, BookMap& opposingBook, Price price, Quantity& fillQty, Side side) {
-    while (fillQty > 0 && !opposingBook.empty()) {
-        // Highest Bid or Lowest Ask
-        auto bestLimitIt = opposingBook.begin();
-        Limit* bestLimit = bestLimitIt->second;
+void Book::updateBestBid() {
+    long long next = bidsMask.scanDesc(highestBid);
+    highestBid = (next == -1) ? 0 : static_cast<Price>(next);
+}
 
+void Book::matchOrder(OrderId takerId, Price price, Quantity& fillQty, Side side) {
+    auto& opposingBook = (side == Side::BUY) ? asks : bids;
+    Price* bestPrice = (side == Side::BUY) ? &lowestAsk : &highestBid;
+    Bitmask& opposingBookMask = (side == Side::BUY) ? asksMask : bidsMask;
+
+    while (fillQty > 0) {
+        // Check if book is empty
+        if (side == Side::BUY && *bestPrice >= MAX_PRICE)
+            break;
+        else if (side == Side::SELL && *bestPrice == 0)
+            break;
         // Check if Profitable
-        if (side == Side::BUY && bestLimit->limitPrice > price)
+        if (side == Side::BUY && *bestPrice > price)
             break;
-        if (side == Side::SELL && bestLimit->limitPrice < price)
+        else if (side == Side::SELL && *bestPrice < price)
             break;
+
+        Limit* bestLimit = opposingBook[*bestPrice];
+        // No orders at the limit
+        if (bestLimit == nullptr) {
+            opposingBookMask.unset(*bestPrice);
+            if (side == Side::BUY) {
+                updateBestAsk();
+            } else {
+                updateBestBid();
+            }
+            continue;
+        }
 
         // Iterate through Limit Queue
         while (fillQty > 0 && bestLimit->size > 0) {
@@ -27,7 +49,6 @@ void Book::matchOrder(OrderId takerId, BookMap& opposingBook, Price price, Quant
             // Benchmarking Only
             if (tradeListener) {
                 Quantity tradeQty = std::min(fillQty, headOrder->qty);
-
                 tradeListener({
                     takerId,
                     headOrder->orderId,
@@ -49,7 +70,7 @@ void Book::matchOrder(OrderId takerId, BookMap& opposingBook, Price price, Quant
                 // Fully Fill Maker's Order
                 headOrder->fill(headOrder->qty);
                 // Remove from Order Map
-                orderMap.erase(headOrder->orderId);
+                orderMap[headOrder->orderId] = nullptr;
                 // Remove from Limit Queue
                 bestLimit->removeOrder(headOrder);
                 orderPool.release(headOrder);
@@ -59,93 +80,84 @@ void Book::matchOrder(OrderId takerId, BookMap& opposingBook, Price price, Quant
         // Remove Limit When Empty
         if (bestLimit->size == 0) {
             limitPool.release(bestLimit);
-            opposingBook.erase(bestLimitIt);
+            opposingBook[*bestPrice] = nullptr;
+            opposingBookMask.unset(*bestPrice);
+            if (side == Side::BUY) {
+                updateBestAsk();
+            } else {
+                updateBestBid();
+            }
         }
     }
 }
 
 void Book::addLimitOrder(OrderId id, Price price, Quantity qty, Side side) {
-    switch (side) {
-    case Side::BUY:
-        matchOrder(id, asksMap, price, qty, side);
-        break;
-    case Side::SELL:
-        matchOrder(id, bidsMap, price, qty, side);
-        break;
-    default:
-        __builtin_unreachable();
-    }
+    matchOrder(id, price, qty, side);
 
     // If there are still shares to fill, create a new order
     if (qty > 0) {
         // Create new order and add to Order Lookup Map
         Order* newOrder = orderPool.acquire(id, price, qty, OrderType::LIMIT, side);
-        orderMap.emplace(id, newOrder);
+        orderMap[id] = newOrder;
 
-        // Add order to respective book
-        switch (side) {
-        case Side::BUY: { // Get reference to the pointer location (auto-creates nullptr if missing)
-            Limit*& limit = bidsMap[price];
+        // Get respective book and bookMask
+        auto& book = (side == Side::BUY) ? bids : asks;
+        auto& mask = (side == Side::BUY) ? bidsMask : asksMask;
 
-            // If it was null, allocate it now
-            if (!limit) {
-                limit = limitPool.acquire(price);
+        // Get Limit or create one if it doesn't exist
+        Limit*& limit = book[price];
+
+        if (!limit) {
+            limit = limitPool.acquire(price);
+            mask.set(price);
+
+            if (side == Side::BUY && price > highestBid) {
+                highestBid = price;
+            } else if (side == Side::SELL && price < lowestAsk) {
+                lowestAsk = price;
             }
-
-            limit->addOrder(newOrder);
-            break;
         }
-        case Side::SELL: {
-            Limit*& limit = asksMap[price];
-
-            if (!limit) {
-                limit = limitPool.acquire(price);
-            }
-
-            limit->addOrder(newOrder);
-            break;
-        }
-        default:
-            __builtin_unreachable();
-        }
+        // Add the new Order to Limit
+        limit->addOrder(newOrder);
     }
 }
 
 void Book::addMarketOrder(OrderId id, Quantity qty, Side side) {
-    switch (side) {
-    case Side::BUY:
-        matchOrder(id, asksMap, std::numeric_limits<Price>::max(), qty, side);
-        break;
-    case Side::SELL:
-        matchOrder(id, bidsMap, std::numeric_limits<Price>::min(), qty, side);
-        break;
-    default:
-        __builtin_unreachable();
+    if (side == Side::BUY) {
+        matchOrder(id, std::numeric_limits<Price>::max(), qty, side);
+    } else {
+        matchOrder(id, std::numeric_limits<Price>::min(), qty, side);
     }
 }
 
 void Book::cancelOrder(OrderId id) {
-    // O(1) Order Lookup
-    auto it = orderMap.find(id);
     // Check if order actually exists
-    if (it == orderMap.end())
+    Order* order = orderMap[id];
+    if (order == nullptr)
         return;
 
-    Order* order = it->second;
     Limit* parentLimit = order->parentLimit;
-
     parentLimit->removeOrder(order);
 
     if (parentLimit->size == 0) {
-        if (order->side == Side::BUY) {
-            bidsMap.erase(parentLimit->limitPrice);
-        } else {
-            asksMap.erase(parentLimit->limitPrice);
-        }
-
+        Price p = parentLimit->limitPrice;
         limitPool.release(parentLimit);
+
+        if (order->side == Side::BUY) {
+            bids[p] = nullptr;
+            bidsMask.unset(p);
+            if (p == highestBid) {
+                updateBestBid();
+            }
+        } else {
+            asks[p] = nullptr;
+            asksMask.unset(p);
+            if (p == lowestAsk) {
+                updateBestAsk();
+            }
+        }
     }
 
-    orderMap.erase(it);
+    orderMap[id] = nullptr;
     orderPool.release(order);
 }

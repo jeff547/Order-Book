@@ -3,26 +3,37 @@
 
 class OrderBookTest : public ::testing::Test {
 protected:
-    Book book{100000, 1000};
+    Book book{100000};
 
     // ==========================================
     // INSPECTOR METHODS (Helpers)
     // ==========================================
 
     // Checks if an order ID exists
-    bool hasOrder(OrderId id) const { return book.orderMap.contains(id); }
+    bool hasOrder(OrderId id) const { return book.orderMap[id] != nullptr; }
 
     // Retrieves a pointer to an order
-    Order* getOrder(OrderId id) const {
-        auto it = book.orderMap.find(id);
-        return (it != book.orderMap.end()) ? it->second : nullptr;
-    }
+    Order* getOrder(OrderId id) const { return book.orderMap[id]; }
 
     // Returns number of active Price Levels on the Sell side
-    size_t getAskDepth() const { return book.asksMap.size(); }
+    size_t getAskDepth() const {
+        size_t count = 0;
+        for (const auto* limit : book.asks) {
+            if (limit != nullptr)
+                count++;
+        }
+        return count;
+    }
 
     // Returns number of active Price Levels on the Buy side
-    size_t getBidDepth() const { return book.bidsMap.size(); }
+    size_t getBidDepth() const {
+        size_t count = 0;
+        for (const auto* limit : book.bids) {
+            if (limit != nullptr)
+                count++;
+        }
+        return count;
+    }
 };
 
 // =====================================================================

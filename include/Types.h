@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-using Price = std::int32_t;
+using Price = std::uint32_t;
 using Quantity = std::uint32_t;
 using OrderId = std::uint64_t;
 
@@ -24,5 +24,7 @@ struct Trade {
     Price price;
     Quantity quantity;
 };
+
+constexpr Price MAX_PRICE = 100'000;
 
 #endif
