@@ -2,6 +2,8 @@
 
 A low-latency, single-threaded matching engine implemented in C++20. This project simulates the core infrastructure of a financial exchange, prioritizing memory layout optimization, instruction cache locality, and algorithmic efficiency.
 
+![C++](https://img.shields.io/badge/c++-%2300599C.svg?style=for-the-badge&logo=c%2B%2B&logoColor=white) ![CMake](https://img.shields.io/badge/CMake-%23008FBA.svg?style=for-the-badge&logo=cmake&logoColor=white) ![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)
+
 ## 🛠 Architecture
 
 ## 1. Switch From std::map To std::vector (Data Structures)
